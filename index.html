@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://docs.google.com https://*.googleusercontent.com https://formspree.io; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src https://docs.google.com https://*.googleusercontent.com https://formspree.io; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>飲食店特化の求人サイト</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -102,7 +102,7 @@ function render(){
  const q=$('#q').value.trim().toLowerCase(),a=$('#fa').value,c=$('#fc').value,w=+$('#fw').value,ps=[...document.querySelectorAll('#fp input:checked')].map(i=>i.value);
  const r=JOBS.filter(j=>(!q||(j.name+j.kana).toLowerCase().includes(q))&&(!a||j.area===a)&&(!c||j.cat===c)&&j.wmax>=w&&ps.every(p=>j.perks.includes(p)));
  $('#cnt').textContent=r.length+'件の求人';
- $('#list').innerHTML=r.length?r.map(j=>`<article class="card rv on"><div class="im">${j.img?`<img src="${j.img}" alt="${j.name}" loading="lazy" decoding="async">`:EM[j.cat]||'🍽️'}<span class="tag" style="background:${colv(j.col)}">${j.cat}</span>${j.tag?`<span class="cm">${j.tag}</span>`:''}</div><div class="bd"><h3>${j.name} <small>(${j.kana})</small></h3><div class="k">${j.sub}</div>
+ $('#list').innerHTML=r.length?r.map(j=>`<article class="card rv on"><div class="im">${j.img?`<img src="${j.img}" alt="${j.name}" loading="lazy" decoding="async" onerror="this.remove()">`:EM[j.cat]||'🍽️'}<span class="tag" style="background:${colv(j.col)}">${j.cat}</span>${j.tag?`<span class="cm">${j.tag}</span>`:''}</div><div class="bd"><h3>${j.name} <small>(${j.kana})</small></h3><div class="k">${j.sub}</div>
  <div class="r"><i style="background:var(--coral)">¥</i><em>時給</em><span class="w2">${wage(j)}</span></div>
  <div class="r"><i style="background:#F5A94B">⌖</i><em>勤務地</em><span>${j.addr}</span></div>
  <div class="r"><i style="background:#F5A94B">★</i><em>福利厚生</em><span>${j.perks.join(' / ')}</span></div>
@@ -196,6 +196,11 @@ document.querySelectorAll('.rv').forEach(el=>io?io.observe(el):el.classList.add(
 const SHEET_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQApJ0wPfrM0sB3gAeQ1Nf53FOZ4Jx4JE_LKOW_7t0ZK7xwpbuYmSwwRw94qtNhxe7uk3AjU4gJMQaa/pub?gid=2097025008&single=true&output=csv';
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function parseCSV(t){const r=[];let row=[],c='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch==','){row.push(c);c=''}else if(ch=='\n'){row.push(c);r.push(row);row=[];c=''}else if(ch!='\r')c+=ch}if(c||row.length){row.push(c);r.push(row)}return r}
+const imgSrc=s=>{s=String(s||'').trim();if(!s)return'';
+ const m=s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/);
+ if(m)return'https://lh3.googleusercontent.com/d/'+m[1]+'=w800';
+ if(/^https:\/\/[\w.-]*googleusercontent\.com\//.test(s))return esc(s);
+ if(/^[\w.-]+$/.test(s))return esc(s);return''};
 const nums=s=>(String(s||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[,，]/g,'').match(/\d+/g)||[]).map(Number);
 const HIDE_NAMES=['Sunny Cafe','Trattoria Bella','Bistro 365'];
 async function loadSheet(){if(!SHEET_URL)return;
@@ -203,7 +208,7 @@ async function loadSheet(){if(!SHEET_URL)return;
   const rows=parseCSV(await r.text()).filter(a=>a.some(c=>c.trim()));const h=rows.shift().map(s=>s.trim());
   const list=rows.map(a=>{const o={};h.forEach((k,x)=>o[k]=(a[x]||'').trim());return o}).filter(o=>o.name&&!HIDE_NAMES.includes(o.name)&&!/^(いいえ|no|false|0|非公開)$/i.test(o.show||''));
   if(!list.length)throw new Error('表示できる行がありません(シートの店舗:'+rows.length+'行)');
-  JOBS=list.map((o,i)=>{const a=nums(o.wmin),b=nums(o.wmax),wmin=a[0]||b[0]||0,wmax=b[0]||a[1]||wmin;return{id:esc(o.id||'s'+i),name:esc(o.name),kana:esc(o.kana),cat:esc(o.cat),sub:esc(o.sub||o.cat),role:esc(o.role),col:['coral','green','blue'].includes(o.col)?o.col:'coral',wmin,wmax,area:esc(o.area),addr:esc(o.addr),perks:(o.perks||'').split(/[\/／,、]\s*/).map(s=>esc(s.trim())).filter(Boolean),tag:esc(o.tag),img:esc(o.img),desc:esc(o.desc)}});
+  JOBS=list.map((o,i)=>{const a=nums(o.wmin),b=nums(o.wmax),wmin=a[0]||b[0]||0,wmax=b[0]||a[1]||wmin;return{id:esc(o.id||'s'+i),name:esc(o.name),kana:esc(o.kana),cat:esc(o.cat),sub:esc(o.sub||o.cat),role:esc(o.role),col:['coral','green','blue'].includes(o.col)?o.col:'coral',wmin,wmax,area:esc(o.area),addr:esc(o.addr),perks:(o.perks||'').split(/[\/／,、]\s*/).map(s=>esc(s.trim())).filter(Boolean),tag:esc(o.tag),img:imgSrc(o.img),desc:esc(o.desc)}});
   buildFilters();render();dbg(' (シート接続OK:シートの店舗'+rows.length+'行→表示'+list.length+'件)'+(MISSING?' ※ポリシーに【】が残っています':''))}catch(e){dbg(' (シート接続失敗:'+(e&&e.name==='TypeError'?'通信がブロックされたか、URLが違います':e.message)+')')}}
 function dbg(m){if(location.search.includes('debug'))$('#cnt').textContent+=m}
 buildFilters();render();buildInfo();loadSheet();
